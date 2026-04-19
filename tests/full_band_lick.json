@@ -1,0 +1,74 @@
+{
+  "title": "Full Band Lick Test",
+  "tracks": [
+    {
+      "version": "0.2",
+      "instrument": "guitar",
+      "title": "Guitar",
+      "style": "rock",
+      "tempo": 128,
+      "timeSignature": "4/4",
+      "key": "E minor",
+      "tuning": "standard",
+      "bars": 2,
+      "resolution": 16,
+      "events": [
+        { "type": "note", "start": 0, "duration": 4, "string": 6, "fret": 0, "velocity": 96, "techniques": ["pick"] },
+        { "type": "note", "start": 4, "duration": 4, "string": 5, "fret": 2, "velocity": 95, "techniques": ["pick"] },
+        { "type": "note", "start": 8, "duration": 4, "string": 4, "fret": 2, "velocity": 95, "techniques": ["pick"] },
+        { "type": "note", "start": 12, "duration": 4, "string": 3, "fret": 0, "velocity": 94, "techniques": ["pick"] },
+        { "type": "note", "start": 16, "duration": 4, "string": 6, "fret": 3, "velocity": 97, "techniques": ["pick"] },
+        { "type": "note", "start": 20, "duration": 4, "string": 5, "fret": 2, "velocity": 95, "techniques": ["pick"] },
+        { "type": "note", "start": 24, "duration": 4, "string": 4, "fret": 0, "velocity": 95, "techniques": ["pick"] },
+        { "type": "rest", "start": 28, "duration": 4 }
+      ]
+    },
+    {
+      "version": "0.2",
+      "instrument": "drums",
+      "title": "Drums",
+      "style": "rock",
+      "tempo": 128,
+      "timeSignature": "4/4",
+      "key": "none",
+      "bars": 2,
+      "resolution": 16,
+      "events": [
+        { "type": "hit", "start": 0, "duration": 4, "piece": "kick", "velocity": 104, "techniques": ["accent"] },
+        { "type": "hit", "start": 0, "duration": 4, "piece": "closed_hat", "velocity": 82, "techniques": [] },
+        { "type": "hit", "start": 4, "duration": 4, "piece": "snare", "velocity": 98, "techniques": ["accent"] },
+        { "type": "hit", "start": 4, "duration": 4, "piece": "closed_hat", "velocity": 82, "techniques": [] },
+        { "type": "hit", "start": 8, "duration": 4, "piece": "kick", "velocity": 102, "techniques": [] },
+        { "type": "hit", "start": 8, "duration": 4, "piece": "open_hat", "velocity": 86, "techniques": [] },
+        { "type": "hit", "start": 12, "duration": 4, "piece": "snare", "velocity": 100, "techniques": ["accent"] },
+        { "type": "hit", "start": 12, "duration": 4, "piece": "crash_1", "velocity": 106, "techniques": ["accent"] },
+        { "type": "hit", "start": 16, "duration": 4, "piece": "kick", "velocity": 104, "techniques": ["accent"] },
+        { "type": "hit", "start": 20, "duration": 4, "piece": "snare", "velocity": 98, "techniques": [] },
+        { "type": "hit", "start": 24, "duration": 4, "piece": "tom_mid", "velocity": 94, "techniques": [] },
+        { "type": "hit", "start": 28, "duration": 4, "piece": "tom_floor", "velocity": 96, "techniques": [] }
+      ]
+    },
+    {
+      "version": "0.2",
+      "instrument": "bass",
+      "title": "Bass",
+      "style": "rock",
+      "tempo": 128,
+      "timeSignature": "4/4",
+      "key": "E minor",
+      "tuning": "standard_4",
+      "bars": 2,
+      "resolution": 16,
+      "events": [
+        { "type": "note", "start": 0, "duration": 4, "string": 4, "fret": 0, "velocity": 100, "techniques": ["pick"] },
+        { "type": "note", "start": 4, "duration": 4, "string": 4, "fret": 0, "velocity": 94, "techniques": ["palm_mute"] },
+        { "type": "note", "start": 8, "duration": 4, "string": 4, "fret": 3, "velocity": 98, "techniques": ["pick"] },
+        { "type": "note", "start": 12, "duration": 4, "string": 3, "fret": 2, "velocity": 96, "techniques": ["pick"] },
+        { "type": "note", "start": 16, "duration": 4, "string": 4, "fret": 0, "velocity": 100, "techniques": ["pick"] },
+        { "type": "note", "start": 20, "duration": 4, "string": 3, "fret": 2, "velocity": 96, "techniques": ["pick"] },
+        { "type": "note", "start": 24, "duration": 4, "string": 3, "fret": 5, "velocity": 98, "techniques": ["pick"] },
+        { "type": "note", "start": 28, "duration": 4, "string": 2, "fret": 5, "velocity": 97, "techniques": ["pick"] }
+      ]
+    }
+  ]
+}

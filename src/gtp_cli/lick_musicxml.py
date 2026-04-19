@@ -48,6 +48,7 @@ class _NoteUnit:
     string: int | None = None
     fret: int | None = None
     is_unpitched: bool = False
+    instrument_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -57,12 +58,62 @@ class _TimelineSlot:
     notes: tuple[_NoteUnit, ...]
 
 
+@dataclass(frozen=True)
+class _PreparedPart:
+    part_id: str
+    instrument: str
+    title: str
+    tempo: int
+    beats: int
+    beat_type: int
+    divisions: int
+    ticks_per_step: int
+    bars: int
+    steps_per_bar: int
+    key: str
+    tuning_pitches: list[int] | None
+    slots_per_bar: dict[int, list[_TimelineSlot]]
+
+
 def render_lick_file_to_musicxml(source: Path) -> str:
     data = json.loads(source.read_text(encoding="utf-8"))
     return render_lick_to_musicxml(data)
 
 
-def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
+def render_lick_to_musicxml(payload: dict[str, Any]) -> str:
+    tracks = _normalize_tracks(payload)
+    prepared_parts = [_prepare_part(track, f"P{index}") for index, track in enumerate(tracks, start=1)]
+    title = str(payload.get("title") or prepared_parts[0].title)
+
+    score = ET.Element("score-partwise", version="2.0")
+    work = ET.SubElement(score, "work")
+    ET.SubElement(work, "work-title").text = title
+
+    part_list = ET.SubElement(score, "part-list")
+    for prepared in prepared_parts:
+        _append_score_part(part_list, prepared)
+
+    for prepared in prepared_parts:
+        _append_part(score, prepared)
+
+    _indent_xml(score)
+    xml_text = ET.tostring(score, encoding="unicode")
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE score-partwise PUBLIC \'-//Recordare//DTD MusicXML 2.0 Partwise//EN\' \'http://www.musicxml.org/dtds/2.0/partwise.dtd\'>\n' + xml_text + "\n"
+
+
+def _normalize_tracks(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if "tracks" not in payload:
+        return [payload]
+
+    tracks = payload["tracks"]
+    if not isinstance(tracks, list) or not tracks:
+        raise ValueError("multi-track lick JSON must include a non-empty tracks array")
+    if not all(isinstance(track, dict) for track in tracks):
+        raise ValueError("multi-track lick JSON tracks must be objects")
+    return tracks
+
+
+def _prepare_part(lick: dict[str, Any], part_id: str) -> _PreparedPart:
     instrument = _validate(lick)
     beats, beat_type = _parse_time_signature(lick["timeSignature"])
     resolution = int(lick["resolution"])
@@ -88,7 +139,7 @@ def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
             continue
         if instrument == "drums":
             piece = str(event["piece"])
-            note = _NoteUnit(midi=DRUM_MIDI[piece], is_unpitched=True)
+            note = _NoteUnit(midi=DRUM_MIDI[piece], is_unpitched=True, instrument_id=_drum_instrument_id(part_id, piece))
             slots_per_bar[bar_index].append(_TimelineSlot(start=local_start, duration=duration, notes=(note,)))
             continue
 
@@ -110,39 +161,70 @@ def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
             slots_per_bar[bar_index].append(_TimelineSlot(start=local_start, duration=duration, notes=tuple(chord_notes)))
             continue
 
-    score = ET.Element("score-partwise", version="2.0")
-    work = ET.SubElement(score, "work")
-    ET.SubElement(work, "work-title").text = title
+    return _PreparedPart(
+        part_id=part_id,
+        instrument=instrument,
+        title=title,
+        tempo=int(lick["tempo"]),
+        beats=beats,
+        beat_type=beat_type,
+        divisions=divisions,
+        ticks_per_step=ticks_per_step,
+        bars=bars,
+        steps_per_bar=steps_per_bar,
+        key=str(lick.get("key", "C major")),
+        tuning_pitches=tuning_pitches,
+        slots_per_bar=slots_per_bar,
+    )
 
-    part_list = ET.SubElement(score, "part-list")
-    score_part = ET.SubElement(part_list, "score-part", id="P1")
-    part_name = "Drum Set" if instrument == "drums" else ("Bass" if instrument == "bass" else "Distortion Guitar")
-    ET.SubElement(score_part, "part-name").text = part_name
-    ET.SubElement(score_part, "part-abbreviation").text = "dr." if instrument == "drums" else ("bass" if instrument == "bass" else "dist.guit.")
-    midi = ET.SubElement(score_part, "midi-instrument", id="P1")
-    ET.SubElement(midi, "midi-channel").text = "10" if instrument == "drums" else "1"
+
+def _append_score_part(part_list: ET.Element, prepared: _PreparedPart) -> None:
+    instrument = prepared.instrument
+    part_id = prepared.part_id
+    score_part = ET.SubElement(part_list, "score-part", id=part_id)
+    fallback_name = "Drum Set" if instrument == "drums" else ("Bass" if instrument == "bass" else "Distortion Guitar")
+    ET.SubElement(score_part, "part-name").text = prepared.title or fallback_name
+    ET.SubElement(score_part, "part-abbreviation").text = "drm." if instrument == "drums" else ("el.bs." if instrument == "bass" else "dist.guit.")
+
+    if instrument == "drums":
+        for piece, midi_value in DRUM_MIDI.items():
+            instrument_id = _drum_instrument_id(part_id, piece)
+            score_instrument = ET.SubElement(score_part, "score-instrument", id=instrument_id)
+            ET.SubElement(score_instrument, "instrument-name").text = _drum_instrument_name(piece)
+            midi = ET.SubElement(score_part, "midi-instrument", id=instrument_id)
+            ET.SubElement(midi, "midi-channel").text = "10"
+            ET.SubElement(midi, "midi-unpitched").text = str(midi_value)
+            ET.SubElement(midi, "volume").text = "80"
+            ET.SubElement(midi, "pan").text = "0"
+        return
+
+    midi = ET.SubElement(score_part, "midi-instrument", id=part_id)
+    ET.SubElement(midi, "midi-channel").text = "5" if instrument == "bass" else "1"
     ET.SubElement(midi, "midi-bank").text = "1"
-    ET.SubElement(midi, "midi-program").text = "1" if instrument == "drums" else ("34" if instrument == "bass" else "31")
+    ET.SubElement(midi, "midi-program").text = "34" if instrument == "bass" else "31"
     ET.SubElement(midi, "volume").text = "80"
     ET.SubElement(midi, "pan").text = "0"
 
-    part = ET.SubElement(score, "part", id="P1")
-    for bar_index in range(bars):
+
+def _append_part(score: ET.Element, prepared: _PreparedPart) -> None:
+    instrument = prepared.instrument
+    part = ET.SubElement(score, "part", id=prepared.part_id)
+    for bar_index in range(prepared.bars):
         measure = ET.SubElement(part, "measure", number=str(bar_index + 1))
         if bar_index == 0:
             attributes = ET.SubElement(measure, "attributes")
-            ET.SubElement(attributes, "divisions").text = str(divisions)
+            ET.SubElement(attributes, "divisions").text = str(prepared.divisions)
             key = ET.SubElement(attributes, "key")
-            ET.SubElement(key, "fifths").text = str(_key_to_fifths(str(lick.get("key", "C major"))))
-            ET.SubElement(key, "mode").text = _key_to_mode(str(lick.get("key", "C major")))
+            ET.SubElement(key, "fifths").text = str(_key_to_fifths(prepared.key))
+            ET.SubElement(key, "mode").text = _key_to_mode(prepared.key)
             time = ET.SubElement(attributes, "time")
-            ET.SubElement(time, "beats").text = str(beats)
-            ET.SubElement(time, "beat-type").text = str(beat_type)
+            ET.SubElement(time, "beats").text = str(prepared.beats)
+            ET.SubElement(time, "beat-type").text = str(prepared.beat_type)
             if instrument == "drums":
-                clef = ET.SubElement(attributes, "clef")
+                clef = ET.SubElement(attributes, "clef", number="1")
                 ET.SubElement(clef, "sign").text = "percussion"
-                ET.SubElement(clef, "line").text = "2"
-                ET.SubElement(attributes, "staves").text = "1"
+                staff_details = ET.SubElement(attributes, "staff-details", number="1")
+                staff_details.append(ET.ProcessingInstruction("GP", "\n<root>\n</root>\n"))
             else:
                 ET.SubElement(attributes, "staves").text = "2"
                 clef_standard = ET.SubElement(attributes, "clef", number="1")
@@ -151,19 +233,21 @@ def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
                 clef_tab = ET.SubElement(attributes, "clef", number="2")
                 ET.SubElement(clef_tab, "sign").text = "TAB"
                 ET.SubElement(clef_tab, "line").text = "5"
+                staff_details_standard = ET.SubElement(attributes, "staff-details", number="1")
+                staff_details_standard.append(ET.ProcessingInstruction("GP", "\n<root>\n</root>\n"))
                 staff_details = ET.SubElement(attributes, "staff-details", number="2")
-                ET.SubElement(staff_details, "staff-lines").text = str(len(tuning_pitches or []))
-                _append_staff_tuning(staff_details, tuning_pitches or [])
+                ET.SubElement(staff_details, "staff-lines").text = str(len(prepared.tuning_pitches or []))
+                _append_staff_tuning(staff_details, prepared.tuning_pitches or [])
 
-            _append_tempo_direction(measure, int(lick["tempo"]))
+            _append_tempo_direction(measure, prepared.tempo)
 
-        voice_slots = _coalesce_slots(slots_per_bar[bar_index], steps_per_bar)
+        voice_slots = _coalesce_slots(prepared.slots_per_bar[bar_index], prepared.steps_per_bar)
         if instrument in {"guitar", "bass"}:
             _append_stringed_staff(
                 parent=measure,
                 slots=voice_slots,
-                divisions=divisions,
-                ticks_per_step=ticks_per_step,
+                divisions=prepared.divisions,
+                ticks_per_step=prepared.ticks_per_step,
                 instrument=instrument,
                 staff_number=1,
                 voice="1",
@@ -171,12 +255,12 @@ def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
                 include_notehead=True,
             )
             backup = ET.SubElement(measure, "backup")
-            ET.SubElement(backup, "duration").text = str(steps_per_bar * ticks_per_step)
+            ET.SubElement(backup, "duration").text = str(prepared.steps_per_bar * prepared.ticks_per_step)
             _append_stringed_staff(
                 parent=measure,
                 slots=voice_slots,
-                divisions=divisions,
-                ticks_per_step=ticks_per_step,
+                divisions=prepared.divisions,
+                ticks_per_step=prepared.ticks_per_step,
                 instrument=instrument,
                 staff_number=2,
                 voice="5",
@@ -189,8 +273,8 @@ def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
             if not slot.notes:
                 _append_rest(
                     parent=measure,
-                    duration=slot.duration * ticks_per_step,
-                    divisions=divisions,
+                    duration=slot.duration * prepared.ticks_per_step,
+                    divisions=prepared.divisions,
                     instrument=instrument,
                     voice="1",
                 )
@@ -200,15 +284,11 @@ def render_lick_to_musicxml(lick: dict[str, Any]) -> str:
                     parent=measure,
                     instrument=instrument,
                     note=note,
-                    duration=slot.duration * ticks_per_step,
-                    divisions=divisions,
+                    duration=slot.duration * prepared.ticks_per_step,
+                    divisions=prepared.divisions,
                     chord=note_index > 0,
                     voice="1",
                 )
-
-    _indent_xml(score)
-    xml_text = ET.tostring(score, encoding="unicode")
-    return '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE score-partwise PUBLIC \'-//Recordare//DTD MusicXML 2.0 Partwise//EN\' \'http://www.musicxml.org/dtds/2.0/partwise.dtd\'>\n' + xml_text + "\n"
 
 
 def _validate(lick: dict[str, Any]) -> str:
@@ -408,8 +488,12 @@ def _append_note(
         ET.SubElement(pitch, "octave").text = str(octave)
 
     ET.SubElement(node, "duration").text = str(duration)
+    if note.instrument_id is not None:
+        ET.SubElement(node, "instrument", id=note.instrument_id)
     ET.SubElement(node, "voice").text = voice
     _append_note_type(node, duration, divisions)
+    if instrument == "drums":
+        ET.SubElement(node, "notehead").text = "x" if note.midi in {42, 44, 46, 49, 51, 53, 57} else "normal"
 
     if note.string is not None and note.fret is not None:
         if include_notehead:
@@ -427,6 +511,29 @@ def _append_note(
 def _gp_technical_instruction(*, string: int, fret: int) -> ET.Element:
     content = f"\n<root>\n<string>{string}</string>\n<fret>{fret}</fret>\n</root>\n"
     return ET.ProcessingInstruction("GP", content)
+
+
+def _drum_instrument_id(part_id: str, piece: str) -> str:
+    return f"{part_id}-I{list(DRUM_MIDI).index(piece) + 1}"
+
+
+def _drum_instrument_name(piece: str) -> str:
+    names = {
+        "kick": "Kick (hit)",
+        "snare": "Snare (hit)",
+        "rim": "Snare (rim shot)",
+        "closed_hat": "Hi-Hat (closed)",
+        "open_hat": "Hi-Hat (open)",
+        "pedal_hat": "Pedal Hi-Hat (hit)",
+        "ride": "Ride (middle)",
+        "ride_bell": "Ride (bell)",
+        "crash_1": "Crash high (hit)",
+        "crash_2": "Crash medium (hit)",
+        "tom_high": "High Tom (hit)",
+        "tom_mid": "Mid Tom (hit)",
+        "tom_floor": "Low Tom (hit)",
+    }
+    return names[piece]
 
 
 def _midi_to_pitch(value: int) -> tuple[str, int, int]:

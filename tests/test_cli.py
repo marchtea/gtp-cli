@@ -348,6 +348,42 @@ def test_lick_to_musicxml_command_writes_drum_musicxml(tmp_path: Path) -> None:
     assert root.find("./part/measure/attributes/clef/sign").text == "percussion"
 
 
+def test_lick_to_musicxml_command_writes_multi_track_musicxml(tmp_path: Path) -> None:
+    source = tmp_path / "full-band.json"
+    target = tmp_path / "full-band.musicxml"
+    source.write_text(
+        json.dumps(
+            {
+                "title": "Full Band",
+                "tracks": [
+                    lick_example("guitar"),
+                    lick_example("drums"),
+                    lick_example("bass"),
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = build_parser().parse_args(["lick-to-musicxml", str(source), "--musicxml", str(target)])
+
+    result = lick_to_musicxml_command(args)
+
+    assert result == 0
+    root = ET.fromstring(target.read_text(encoding="utf-8").split("\n", 2)[2])
+    assert [part.attrib["id"] for part in root.findall("./part-list/score-part")] == ["P1", "P2", "P3"]
+    assert root.find("./part-list/score-part[@id='P1']/midi-instrument/midi-program").text == "31"
+    assert root.find("./part-list/score-part[@id='P2']/score-instrument") is not None
+    assert root.find("./part-list/score-part[@id='P2']/midi-instrument/midi-channel").text == "10"
+    assert root.find("./part-list/score-part[@id='P3']/midi-instrument/midi-program").text == "34"
+    assert root.find("./part[@id='P1']/measure/attributes/staves").text == "2"
+    assert root.find("./part[@id='P1']/measure/backup") is not None
+    assert root.find("./part[@id='P2']/measure/attributes/clef/sign").text == "percussion"
+    assert root.find("./part[@id='P2']/measure/note/unpitched") is not None
+    assert root.find("./part[@id='P2']/measure/note/instrument") is not None
+    assert root.find("./part[@id='P3']/measure/attributes/staves").text == "2"
+    assert root.find("./part[@id='P3']/measure/backup") is not None
+
+
 def test_lick_to_musicxml_command_rejects_invalid_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     source = tmp_path / "bad.json"
     source.write_text('{"instrument":"guitar","events":[]}', encoding="utf-8")
