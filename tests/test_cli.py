@@ -273,6 +273,7 @@ def test_lick_spec_help_describes_supported_instruments(capsys: pytest.CaptureFi
     assert "--instrument {guitar,bass,drums}" in output
     assert "Supported: guitar, bass," in output
     assert "drums. Defaults to guitar." in output
+    assert "--bars {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}" in output
 
 
 def test_main_lick_spec_prints_default_instrument_hint(capsys: pytest.CaptureFixture[str]) -> None:
@@ -283,3 +284,8 @@ def test_main_lick_spec_prints_default_instrument_hint(capsys: pytest.CaptureFix
     assert "defaults to instrument=guitar" in output
     assert "Use `gtp-cli lick-spec --help`" in output
     assert 'instrument must be "guitar"' in output
+
+
+def test_lick_spec_parser_accepts_12_bars() -> None:
+    args = build_parser().parse_args(["lick-spec", "--bars", "12"])
+    assert args.bars == 12

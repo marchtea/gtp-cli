@@ -107,7 +107,7 @@ uv run gtp-cli lick-spec \
 | `key` | Required | Required | Required | Musical key for guitar and bass; drums use `"none"`. |
 | `tuning` | Required | Required | Not used | Guitar or bass tuning enum. |
 | `customTuning` | Conditional | Conditional | Not used | Required when `tuning` is `"custom"`. |
-| `bars` | Required | Required | Required | Number of bars, from 1 to 8. |
+| `bars` | Required | Required | Required | Number of bars, from 1 to 16. |
 | `resolution` | Required | Required | Required | Number of rhythmic steps per bar. Supported values: `16` and `24`. |
 | `events` | Required | Required | Required | Ordered list of instrument events. |
 

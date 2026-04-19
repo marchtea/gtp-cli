@@ -225,7 +225,7 @@ def _stringed_schema(instrument: str) -> dict[str, Any]:
                 "minItems": 4 if instrument == "bass" else 6,
                 "maxItems": max_string,
             },
-            "bars": {"type": "integer", "minimum": 1, "maximum": 8},
+            "bars": {"type": "integer", "minimum": 1, "maximum": 16},
             "resolution": {"enum": list(RESOLUTIONS)},
             "events": {
                 "type": "array",
@@ -324,7 +324,7 @@ def _drum_schema() -> dict[str, Any]:
             "tempo": {"type": "integer", "minimum": 40, "maximum": 240},
             "timeSignature": {"enum": list(TIME_SIGNATURES)},
             "key": {"enum": ["none"]},
-            "bars": {"type": "integer", "minimum": 1, "maximum": 8},
+            "bars": {"type": "integer", "minimum": 1, "maximum": 16},
             "resolution": {"enum": list(RESOLUTIONS)},
             "events": {
                 "type": "array",
