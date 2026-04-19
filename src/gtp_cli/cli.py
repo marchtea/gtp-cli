@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 from subprocess import CompletedProcess, TimeoutExpired
@@ -22,6 +23,7 @@ from gtp_cli.lick_spec import (
     techniques_for_instrument,
     tunings_for_instrument,
 )
+from gtp_cli.lick_musicxml import render_lick_file_to_musicxml
 from gtp_cli.paths import ensure_output_directories, resolve_conversion_paths
 
 Runner = Callable[[str, int], CompletedProcess[str]]
@@ -92,6 +94,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Technique that the generated lick should include. Can be repeated.",
     )
     lick_spec.set_defaults(handler=lick_spec_command)
+
+    lick_to_musicxml = subparsers.add_parser(
+        "lick-to-musicxml",
+        help="Convert a lick-spec JSON file into MusicXML.",
+    )
+    lick_to_musicxml.add_argument("source", type=Path, help="Path to the lick JSON file.")
+    lick_to_musicxml.add_argument(
+        "--musicxml",
+        type=Path,
+        help="Output MusicXML file path. Defaults to SOURCE.musicxml.",
+    )
+    lick_to_musicxml.add_argument("--force", action="store_true", help="Overwrite existing output files.")
+    lick_to_musicxml.set_defaults(handler=lick_to_musicxml_command)
     return parser
 
 
@@ -186,6 +201,30 @@ def lick_spec_command(args: argparse.Namespace) -> int:
             include_techniques=tuple(args.include_technique),
         )
     )
+    return 0
+
+
+def lick_to_musicxml_command(args: argparse.Namespace) -> int:
+    source = args.source.expanduser().resolve()
+    if not source.exists():
+        print(f"gtp-cli: source file not found: {source}", file=sys.stderr)
+        return 2
+
+    target = (args.musicxml or source.with_suffix(".musicxml")).expanduser().resolve()
+    if target.exists() and not args.force:
+        print(f"gtp-cli: output already exists: {target} (pass --force to overwrite)", file=sys.stderr)
+        return 2
+
+    try:
+        musicxml = render_lick_file_to_musicxml(source)
+    except (ValueError, RuntimeError, json.JSONDecodeError) as error:
+        print(f"gtp-cli: {error}", file=sys.stderr)
+        return 2
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(musicxml, encoding="utf-8")
+    print(f"Input: {source}")
+    print(f"MusicXML: {target}")
     return 0
 
 

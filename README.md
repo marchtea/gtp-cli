@@ -75,6 +75,22 @@ uv run gtp-cli lick-spec \
   --include-technique accent
 ```
 
+## Lick JSON To MusicXML
+
+Convert a lick-spec JSON file into MusicXML:
+
+```bash
+uv run gtp-cli lick-to-musicxml ./lick.json
+uv run gtp-cli lick-to-musicxml ./lick.json --musicxml ./out/lick.musicxml --force
+```
+
+Create an example JSON from the spec and convert it:
+
+```bash
+uv run gtp-cli lick-spec --instrument guitar --format example > ./lick.json
+uv run gtp-cli lick-to-musicxml ./lick.json --force
+```
+
 ## Verification
 
 Run the unit tests:

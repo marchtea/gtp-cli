@@ -5,7 +5,9 @@ description = "macOS CLI wrapper for importing MusicXML into Guitar Pro 8 and ex
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Summer" }]
-dependencies = []
+dependencies = [
+    "jsonschema>=4.23.0",
+]
 
 [project.scripts]
 gtp-cli = "gtp_cli.cli:main"

@@ -3,11 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from subprocess import CompletedProcess
+from xml.etree import ElementTree as ET
 
 import pytest
 
 from gtp_cli.automation import ConversionRequest, build_applescript
-from gtp_cli.cli import build_parser, convert_command, lick_spec_command, main
+from gtp_cli.cli import build_parser, convert_command, lick_spec_command, lick_to_musicxml_command, main
+from gtp_cli.lick_spec import lick_example
 from gtp_cli.paths import ConversionPaths, resolve_conversion_paths
 
 
@@ -289,3 +291,69 @@ def test_main_lick_spec_prints_default_instrument_hint(capsys: pytest.CaptureFix
 def test_lick_spec_parser_accepts_12_bars() -> None:
     args = build_parser().parse_args(["lick-spec", "--bars", "12"])
     assert args.bars == 12
+
+
+def test_lick_to_musicxml_command_writes_guitar_musicxml(tmp_path: Path) -> None:
+    source = tmp_path / "lick.json"
+    target = tmp_path / "lick.musicxml"
+    source.write_text(json.dumps(lick_example("guitar")), encoding="utf-8")
+    args = build_parser().parse_args(["lick-to-musicxml", str(source), "--musicxml", str(target)])
+
+    result = lick_to_musicxml_command(args)
+
+    assert result == 0
+    assert target.exists()
+    musicxml = target.read_text(encoding="utf-8")
+    root = ET.fromstring(musicxml.split("\n", 2)[2])
+    assert root.tag == "score-partwise"
+    assert root.find("./part/measure/note/pitch") is not None
+    assert root.find("./part/measure/direction/sound[@tempo='120']") is not None
+    assert root.find("./part/measure/direction/direction-type/metronome/per-minute").text == "120"
+    assert root.find("./part/measure/attributes/key/fifths").text == "1"
+    assert root.find("./part/measure/attributes/key/mode").text == "minor"
+    assert root.find("./part/measure/attributes/staves").text == "2"
+    assert root.find("./part/measure/attributes/clef[@number='2']/sign").text == "TAB"
+    assert root.find("./part/measure/attributes/staff-details[@number='2']/staff-tuning[@line='1']/tuning-step").text == "E"
+    first_note = root.find("./part/measure/note")
+    assert first_note is not None
+    child_tags = [child.tag for child in first_note]
+    assert first_note.find("./voice").text == "1"
+    assert first_note.find("./notehead").text == "normal"
+    assert child_tags.index("staff") < child_tags.index("notations")
+    assert "<?GP" in musicxml
+    assert root.find("./part/measure/backup/duration").text == "256"
+    tab_notes = [note for note in root.findall("./part/measure/note") if note.findtext("./staff") == "2"]
+    assert tab_notes
+    first_tab_note = tab_notes[0]
+    tab_child_tags = [child.tag for child in first_tab_note]
+    assert first_tab_note.find("./voice").text == "5"
+    assert tab_child_tags.index("staff") < tab_child_tags.index("notations")
+    assert first_tab_note.find("./notations/technical/string").text == "3"
+    assert first_tab_note.find("./notations/technical/fret").text == "7"
+
+
+def test_lick_to_musicxml_command_writes_drum_musicxml(tmp_path: Path) -> None:
+    source = tmp_path / "drums.json"
+    source.write_text(json.dumps(lick_example("drums")), encoding="utf-8")
+    args = build_parser().parse_args(["lick-to-musicxml", str(source)])
+
+    result = lick_to_musicxml_command(args)
+
+    assert result == 0
+    target = tmp_path / "drums.musicxml"
+    assert target.exists()
+    root = ET.fromstring(target.read_text(encoding="utf-8").split("\n", 2)[2])
+    assert root.find("./part/measure/note/unpitched") is not None
+    assert root.find("./part/measure/direction/sound[@tempo='120']") is not None
+    assert root.find("./part/measure/attributes/clef/sign").text == "percussion"
+
+
+def test_lick_to_musicxml_command_rejects_invalid_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    source = tmp_path / "bad.json"
+    source.write_text('{"instrument":"guitar","events":[]}', encoding="utf-8")
+    args = build_parser().parse_args(["lick-to-musicxml", str(source)])
+
+    result = lick_to_musicxml_command(args)
+
+    assert result == 2
+    assert "does not match spec" in capsys.readouterr().err

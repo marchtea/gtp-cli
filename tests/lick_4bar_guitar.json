@@ -1,0 +1,33 @@
+{
+  "version": "0.2",
+  "instrument": "guitar",
+  "title": "4 Bar Guitar Test",
+  "style": "blues_rock",
+  "tempo": 100,
+  "timeSignature": "4/4",
+  "key": "E minor",
+  "tuning": "standard",
+  "bars": 4,
+  "resolution": 16,
+  "events": [
+    { "type": "note", "start": 0, "duration": 4, "string": 6, "fret": 0, "velocity": 95, "techniques": ["pick"] },
+    { "type": "note", "start": 4, "duration": 4, "string": 5, "fret": 2, "velocity": 94, "techniques": ["pick"] },
+    { "type": "note", "start": 8, "duration": 4, "string": 4, "fret": 2, "velocity": 94, "techniques": ["pick"] },
+    { "type": "note", "start": 12, "duration": 4, "string": 3, "fret": 0, "velocity": 93, "techniques": ["pick"] },
+
+    { "type": "note", "start": 16, "duration": 4, "string": 6, "fret": 3, "velocity": 96, "techniques": ["pick"] },
+    { "type": "note", "start": 20, "duration": 4, "string": 5, "fret": 2, "velocity": 94, "techniques": ["pick"] },
+    { "type": "note", "start": 24, "duration": 4, "string": 4, "fret": 0, "velocity": 94, "techniques": ["pick"] },
+    { "type": "rest", "start": 28, "duration": 4 },
+
+    { "type": "note", "start": 32, "duration": 4, "string": 5, "fret": 7, "velocity": 97, "techniques": ["pick"] },
+    { "type": "note", "start": 36, "duration": 4, "string": 4, "fret": 5, "velocity": 95, "techniques": ["pick"] },
+    { "type": "note", "start": 40, "duration": 4, "string": 3, "fret": 4, "velocity": 95, "techniques": ["pick"] },
+    { "type": "note", "start": 44, "duration": 4, "string": 2, "fret": 5, "velocity": 96, "techniques": ["pick"] },
+
+    { "type": "note", "start": 48, "duration": 4, "string": 3, "fret": 7, "velocity": 98, "techniques": ["pick"] },
+    { "type": "note", "start": 52, "duration": 4, "string": 2, "fret": 8, "velocity": 99, "techniques": ["pick"] },
+    { "type": "note", "start": 56, "duration": 4, "string": 1, "fret": 7, "velocity": 99, "techniques": ["pick"] },
+    { "type": "note", "start": 60, "duration": 4, "string": 1, "fret": 5, "velocity": 97, "techniques": ["pick"] }
+  ]
+}
