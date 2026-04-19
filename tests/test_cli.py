@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from subprocess import CompletedProcess
 
 import pytest
 
 from gtp_cli.automation import ConversionRequest, build_applescript
-from gtp_cli.cli import build_parser, convert_command
+from gtp_cli.cli import build_parser, convert_command, lick_spec_command
 from gtp_cli.paths import ConversionPaths, resolve_conversion_paths
 
 
@@ -118,3 +119,60 @@ def test_convert_command_explains_macos_accessibility_error(
 
     assert result == 1
     assert "Grant Accessibility permission" in capsys.readouterr().err
+
+
+def test_lick_spec_command_outputs_json_schema(capsys: pytest.CaptureFixture[str]) -> None:
+    args = build_parser().parse_args(["lick-spec", "--format", "schema"])
+
+    result = lick_spec_command(args)
+
+    assert result == 0
+    schema = json.loads(capsys.readouterr().out)
+    assert schema["title"] == "Guitar Lick JSON"
+    assert schema["properties"]["version"]["const"] == "0.1"
+    assert "bend_full" in schema["$defs"]["technique"]["enum"]
+
+
+def test_lick_spec_command_outputs_llm_prompt_with_musical_constraints(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = build_parser().parse_args(
+        [
+            "lick-spec",
+            "--format",
+            "prompt",
+            "--style",
+            "metal",
+            "--key",
+            "D minor",
+            "--bars",
+            "4",
+            "--tuning",
+            "drop_d",
+            "--tempo",
+            "140",
+            "--resolution",
+            "24",
+            "--fret-range",
+            "3-15",
+            "--include-technique",
+            "palm_mute",
+            "--include-technique",
+            "bend_full",
+        ]
+    )
+
+    result = lick_spec_command(args)
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "Generate a guitar lick as valid JSON only." in output
+    assert "- style: metal" in output
+    assert "- key: D minor" in output
+    assert "- bars: 4" in output
+    assert "- tuning: drop_d" in output
+    assert "- tempo: 140" in output
+    assert "- resolution: 24" in output
+    assert "- mostly use frets 3-15" in output
+    assert "- include technique: palm_mute" in output
+    assert "- include technique: bend_full" in output

@@ -34,6 +34,32 @@ uv run gtp-cli convert ./score.musicxml --dry-run
 
 Use `--dry-run` to inspect the generated AppleScript without opening Guitar Pro.
 
+## LLM Guitar Lick Spec
+
+`gtp-cli` can print a constrained JSON spec for LLM-generated guitar licks:
+
+```bash
+uv run gtp-cli lick-spec --format prompt
+uv run gtp-cli lick-spec --format schema
+uv run gtp-cli lick-spec --format example
+uv run gtp-cli lick-spec --format summary
+```
+
+Generate a prompt with musical constraints:
+
+```bash
+uv run gtp-cli lick-spec \
+  --format prompt \
+  --style blues_rock \
+  --key "E minor" \
+  --bars 2 \
+  --tuning standard \
+  --tempo 120 \
+  --fret-range 5-12 \
+  --include-technique hammer_on \
+  --include-technique bend_half
+```
+
 ## Verification
 
 Run the unit tests:

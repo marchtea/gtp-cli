@@ -7,6 +7,18 @@ from subprocess import CompletedProcess, TimeoutExpired
 from typing import Callable
 
 from gtp_cli.automation import ConversionRequest, build_applescript, parse_menu_path, run_osascript
+from gtp_cli.lick_spec import (
+    EXAMPLE_LICK,
+    RESOLUTIONS,
+    STYLES,
+    TECHNIQUES,
+    TIME_SIGNATURES,
+    TUNINGS,
+    build_llm_prompt,
+    build_summary,
+    dumps_json,
+    guitar_lick_schema,
+)
 from gtp_cli.paths import ensure_output_directories, resolve_conversion_paths
 
 Runner = Callable[[str, int], CompletedProcess[str]]
@@ -36,6 +48,41 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--force", action="store_true", help="Overwrite existing output files.")
     convert.add_argument("--dry-run", action="store_true", help="Print AppleScript instead of executing it.")
     convert.set_defaults(handler=convert_command)
+
+    lick_spec = subparsers.add_parser("lick-spec", help="Print the LLM-facing guitar lick JSON spec.")
+    lick_spec.add_argument(
+        "--format",
+        choices=("prompt", "schema", "summary", "example"),
+        default="prompt",
+        help="Output format. Defaults to prompt.",
+    )
+    lick_spec.add_argument("--style", choices=STYLES, default="blues_rock", help="Musical style for prompt output.")
+    lick_spec.add_argument("--key", default="E minor", help='Musical key for prompt output, e.g. "E minor".')
+    lick_spec.add_argument("--bars", type=int, default=2, choices=range(1, 9), help="Number of bars for prompt output.")
+    lick_spec.add_argument("--tuning", choices=TUNINGS, default="standard", help="Tuning for prompt output.")
+    lick_spec.add_argument("--tempo", type=int, help="Optional tempo for prompt output.")
+    lick_spec.add_argument(
+        "--time-signature",
+        choices=TIME_SIGNATURES,
+        default="4/4",
+        help="Time signature for prompt output.",
+    )
+    lick_spec.add_argument(
+        "--resolution",
+        type=int,
+        choices=RESOLUTIONS,
+        default=16,
+        help="Rhythmic grid resolution for prompt output.",
+    )
+    lick_spec.add_argument("--fret-range", help='Preferred fret range for prompt output, e.g. "5-12".')
+    lick_spec.add_argument(
+        "--include-technique",
+        action="append",
+        choices=TECHNIQUES,
+        default=[],
+        help="Technique that the generated lick should include. Can be repeated.",
+    )
+    lick_spec.set_defaults(handler=lick_spec_command)
     return parser
 
 
@@ -77,6 +124,33 @@ def convert_command(args: argparse.Namespace, runner: Runner = run_osascript) ->
         return result.returncode
 
     _print_success(paths)
+    return 0
+
+
+def lick_spec_command(args: argparse.Namespace) -> int:
+    if args.format == "schema":
+        print(dumps_json(guitar_lick_schema()))
+        return 0
+    if args.format == "example":
+        print(dumps_json(EXAMPLE_LICK))
+        return 0
+    if args.format == "summary":
+        print(build_summary())
+        return 0
+
+    print(
+        build_llm_prompt(
+            style=args.style,
+            key=args.key,
+            bars=args.bars,
+            tuning=args.tuning,
+            tempo=args.tempo,
+            time_signature=args.time_signature,
+            resolution=args.resolution,
+            fret_range=args.fret_range,
+            include_techniques=tuple(args.include_technique),
+        )
+    )
     return 0
 
 

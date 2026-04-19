@@ -27,6 +27,50 @@ This document defines a constrained JSON format for generating short guitar lick
 4. Export to MIDI for playback or DAW import.
 5. Optionally export to MusicXML or tablature after validation.
 
+## CLI Access
+
+The spec is also exposed through `gtp-cli` for LLM and script access.
+
+Print a generation prompt:
+
+```bash
+uv run gtp-cli lick-spec --format prompt
+```
+
+Print the JSON Schema:
+
+```bash
+uv run gtp-cli lick-spec --format schema
+```
+
+Print an example lick:
+
+```bash
+uv run gtp-cli lick-spec --format example
+```
+
+Print a compact summary:
+
+```bash
+uv run gtp-cli lick-spec --format summary
+```
+
+Prompt output can be parameterized:
+
+```bash
+uv run gtp-cli lick-spec \
+  --format prompt \
+  --style metal \
+  --key "D minor" \
+  --bars 4 \
+  --tuning drop_d \
+  --tempo 140 \
+  --resolution 24 \
+  --fret-range 3-15 \
+  --include-technique palm_mute \
+  --include-technique bend_full
+```
+
 ## Example
 
 ```json
