@@ -34,6 +34,29 @@ uv run gtp-cli convert ./score.musicxml --dry-run
 
 Use `--dry-run` to inspect the generated AppleScript without opening Guitar Pro.
 
+## Verification
+
+Run the unit tests:
+
+```bash
+uv run pytest
+```
+
+Verify that the generated AppleScript compiles without opening Guitar Pro:
+
+```bash
+uv run gtp-cli convert 'tests/7和弦順階連奏.xml' --force --dry-run > /tmp/gtp-cli-e2e.applescript
+osacompile -o /tmp/gtp-cli-e2e.scpt /tmp/gtp-cli-e2e.applescript
+```
+
+Run the real end-to-end Guitar Pro 8 conversion:
+
+```bash
+rm -f 'tests/7和弦順階連奏.gpx' 'tests/7和弦順階連奏.png'
+uv run gtp-cli convert 'tests/7和弦順階連奏.xml' --force --timeout 75 --settle-delay 1 --keep-open
+file 'tests/7和弦順階連奏.gpx' 'tests/7和弦順階連奏.png'
+```
+
 ## Notes
 
 Guitar Pro 8 does not provide a stable public command line interface on macOS, so this tool uses AppleScript and System Events to drive the normal application menus. Menu names can differ by Guitar Pro version or app language; if needed, pass custom menu paths:
