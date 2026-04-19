@@ -8,16 +8,19 @@ from typing import Callable
 
 from gtp_cli.automation import ConversionRequest, build_applescript, parse_menu_path, run_osascript
 from gtp_cli.lick_spec import (
-    EXAMPLE_LICK,
+    ALL_TECHNIQUES,
+    ALL_TUNINGS,
+    INSTRUMENTS,
     RESOLUTIONS,
     STYLES,
-    TECHNIQUES,
     TIME_SIGNATURES,
-    TUNINGS,
     build_llm_prompt,
     build_summary,
     dumps_json,
-    guitar_lick_schema,
+    lick_example,
+    lick_schema,
+    techniques_for_instrument,
+    tunings_for_instrument,
 )
 from gtp_cli.paths import ensure_output_directories, resolve_conversion_paths
 
@@ -49,17 +52,18 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("--dry-run", action="store_true", help="Print AppleScript instead of executing it.")
     convert.set_defaults(handler=convert_command)
 
-    lick_spec = subparsers.add_parser("lick-spec", help="Print the LLM-facing guitar lick JSON spec.")
+    lick_spec = subparsers.add_parser("lick-spec", help="Print the LLM-facing instrument lick JSON spec.")
     lick_spec.add_argument(
         "--format",
         choices=("prompt", "schema", "summary", "example"),
         default="prompt",
         help="Output format. Defaults to prompt.",
     )
+    lick_spec.add_argument("--instrument", choices=INSTRUMENTS, default="guitar", help="Instrument spec to print.")
     lick_spec.add_argument("--style", choices=STYLES, default="blues_rock", help="Musical style for prompt output.")
     lick_spec.add_argument("--key", default="E minor", help='Musical key for prompt output, e.g. "E minor".')
     lick_spec.add_argument("--bars", type=int, default=2, choices=range(1, 9), help="Number of bars for prompt output.")
-    lick_spec.add_argument("--tuning", choices=TUNINGS, default="standard", help="Tuning for prompt output.")
+    lick_spec.add_argument("--tuning", choices=ALL_TUNINGS, help="Tuning for guitar or bass prompt output.")
     lick_spec.add_argument("--tempo", type=int, help="Optional tempo for prompt output.")
     lick_spec.add_argument(
         "--time-signature",
@@ -78,7 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
     lick_spec.add_argument(
         "--include-technique",
         action="append",
-        choices=TECHNIQUES,
+        choices=ALL_TECHNIQUES,
         default=[],
         help="Technique that the generated lick should include. Can be repeated.",
     )
@@ -128,22 +132,41 @@ def convert_command(args: argparse.Namespace, runner: Runner = run_osascript) ->
 
 
 def lick_spec_command(args: argparse.Namespace) -> int:
+    if args.instrument == "drums" and args.tuning is not None:
+        print("gtp-cli: --tuning is not supported for drums", file=sys.stderr)
+        return 2
+    if args.instrument == "drums" and args.fret_range is not None:
+        print("gtp-cli: --fret-range is not supported for drums", file=sys.stderr)
+        return 2
+    if args.instrument != "drums" and args.tuning is not None and args.tuning not in tunings_for_instrument(args.instrument):
+        print(f"gtp-cli: unsupported tuning for {args.instrument}: {args.tuning}", file=sys.stderr)
+        return 2
+
+    unsupported_techniques = sorted(set(args.include_technique) - set(techniques_for_instrument(args.instrument)))
+    if unsupported_techniques:
+        print(
+            f"gtp-cli: unsupported technique for {args.instrument}: {', '.join(unsupported_techniques)}",
+            file=sys.stderr,
+        )
+        return 2
+
     if args.format == "schema":
-        print(dumps_json(guitar_lick_schema()))
+        print(dumps_json(lick_schema(args.instrument)))
         return 0
     if args.format == "example":
-        print(dumps_json(EXAMPLE_LICK))
+        print(dumps_json(lick_example(args.instrument)))
         return 0
     if args.format == "summary":
-        print(build_summary())
+        print(build_summary(args.instrument))
         return 0
 
     print(
         build_llm_prompt(
+            instrument=args.instrument,
             style=args.style,
-            key=args.key,
+            key=_default_key(args.instrument, args.key),
             bars=args.bars,
-            tuning=args.tuning,
+            tuning=_default_tuning(args.instrument, args.tuning),
             tempo=args.tempo,
             time_signature=args.time_signature,
             resolution=args.resolution,
@@ -152,6 +175,22 @@ def lick_spec_command(args: argparse.Namespace) -> int:
         )
     )
     return 0
+
+
+def _default_key(instrument: str, key: str) -> str:
+    if instrument == "drums" and key == "E minor":
+        return "none"
+    return key
+
+
+def _default_tuning(instrument: str, tuning: str | None) -> str | None:
+    if instrument == "drums":
+        return None
+    if tuning is not None:
+        return tuning
+    if instrument == "bass":
+        return "standard_4"
+    return "standard"
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -34,21 +34,22 @@ uv run gtp-cli convert ./score.musicxml --dry-run
 
 Use `--dry-run` to inspect the generated AppleScript without opening Guitar Pro.
 
-## LLM Guitar Lick Spec
+## LLM Lick Spec
 
-`gtp-cli` can print a constrained JSON spec for LLM-generated guitar licks:
+`gtp-cli` can print constrained JSON specs for LLM-generated guitar, bass, and drum licks:
 
 ```bash
-uv run gtp-cli lick-spec --format prompt
-uv run gtp-cli lick-spec --format schema
-uv run gtp-cli lick-spec --format example
-uv run gtp-cli lick-spec --format summary
+uv run gtp-cli lick-spec --instrument guitar --format prompt
+uv run gtp-cli lick-spec --instrument bass --format schema
+uv run gtp-cli lick-spec --instrument drums --format example
+uv run gtp-cli lick-spec --instrument guitar --format summary
 ```
 
 Generate a prompt with musical constraints:
 
 ```bash
 uv run gtp-cli lick-spec \
+  --instrument guitar \
   --format prompt \
   --style blues_rock \
   --key "E minor" \
@@ -58,6 +59,20 @@ uv run gtp-cli lick-spec \
   --fret-range 5-12 \
   --include-technique hammer_on \
   --include-technique bend_half
+```
+
+Generate a drum prompt:
+
+```bash
+uv run gtp-cli lick-spec \
+  --instrument drums \
+  --format prompt \
+  --style rock \
+  --key none \
+  --bars 1 \
+  --tempo 120 \
+  --include-technique ghost \
+  --include-technique accent
 ```
 
 ## Verification
@@ -105,4 +120,4 @@ uv run gtp-cli convert ./score.musicxml \
 
 ## Docs
 
-- [Guitar Lick JSON Spec](docs/guitar-lick-json-spec.md)
+- [Lick JSON Spec](docs/lick-json-spec.md)

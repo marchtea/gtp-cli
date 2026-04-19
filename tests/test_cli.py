@@ -129,8 +129,36 @@ def test_lick_spec_command_outputs_json_schema(capsys: pytest.CaptureFixture[str
     assert result == 0
     schema = json.loads(capsys.readouterr().out)
     assert schema["title"] == "Guitar Lick JSON"
-    assert schema["properties"]["version"]["const"] == "0.1"
+    assert schema["properties"]["version"]["const"] == "0.2"
+    assert schema["properties"]["instrument"]["const"] == "guitar"
     assert "bend_full" in schema["$defs"]["technique"]["enum"]
+
+
+def test_lick_spec_command_outputs_bass_schema(capsys: pytest.CaptureFixture[str]) -> None:
+    args = build_parser().parse_args(["lick-spec", "--instrument", "bass", "--format", "schema"])
+
+    result = lick_spec_command(args)
+
+    assert result == 0
+    schema = json.loads(capsys.readouterr().out)
+    assert schema["title"] == "Bass Lick JSON"
+    assert schema["properties"]["instrument"]["const"] == "bass"
+    assert schema["properties"]["tuning"]["enum"] == ["standard_4", "drop_d", "standard_5", "half_step_down", "custom"]
+    assert schema["$defs"]["technique"]["enum"][:4] == ["finger", "pick", "slap", "pop"]
+
+
+def test_lick_spec_command_outputs_drum_schema(capsys: pytest.CaptureFixture[str]) -> None:
+    args = build_parser().parse_args(["lick-spec", "--instrument", "drums", "--format", "schema"])
+
+    result = lick_spec_command(args)
+
+    assert result == 0
+    schema = json.loads(capsys.readouterr().out)
+    assert schema["title"] == "Drum Lick JSON"
+    assert schema["properties"]["instrument"]["const"] == "drums"
+    assert schema["properties"]["key"]["enum"] == ["none"]
+    assert "kick" in schema["$defs"]["piece"]["enum"]
+    assert "ghost" in schema["$defs"]["technique"]["enum"]
 
 
 def test_lick_spec_command_outputs_llm_prompt_with_musical_constraints(
@@ -141,6 +169,8 @@ def test_lick_spec_command_outputs_llm_prompt_with_musical_constraints(
             "lick-spec",
             "--format",
             "prompt",
+            "--instrument",
+            "bass",
             "--style",
             "metal",
             "--key",
@@ -158,7 +188,7 @@ def test_lick_spec_command_outputs_llm_prompt_with_musical_constraints(
             "--include-technique",
             "palm_mute",
             "--include-technique",
-            "bend_full",
+            "slide_up",
         ]
     )
 
@@ -166,7 +196,9 @@ def test_lick_spec_command_outputs_llm_prompt_with_musical_constraints(
 
     assert result == 0
     output = capsys.readouterr().out
-    assert "Generate a guitar lick as valid JSON only." in output
+    assert "Generate a bass lick as valid JSON only." in output
+    assert '- instrument must be "bass"' in output
+    assert "- instrument: bass" in output
     assert "- style: metal" in output
     assert "- key: D minor" in output
     assert "- bars: 4" in output
@@ -175,4 +207,56 @@ def test_lick_spec_command_outputs_llm_prompt_with_musical_constraints(
     assert "- resolution: 24" in output
     assert "- mostly use frets 3-15" in output
     assert "- include technique: palm_mute" in output
-    assert "- include technique: bend_full" in output
+    assert "- include technique: slide_up" in output
+
+
+def test_lick_spec_command_outputs_drum_prompt(capsys: pytest.CaptureFixture[str]) -> None:
+    args = build_parser().parse_args(
+        [
+            "lick-spec",
+            "--instrument",
+            "drums",
+            "--format",
+            "prompt",
+            "--style",
+            "funk",
+            "--bars",
+            "1",
+            "--include-technique",
+            "ghost",
+        ]
+    )
+
+    result = lick_spec_command(args)
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "Generate a drum lick as valid JSON only." in output
+    assert '- instrument must be "drums"' in output
+    assert "- key: none" in output
+    assert '- events must contain only "hit" or "rest"' in output
+    assert "- hit events use piece from: kick, snare" in output
+    assert "- include technique: ghost" in output
+    assert "tuning must be one of" not in output
+
+
+def test_lick_spec_command_rejects_unsupported_instrument_options(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = build_parser().parse_args(["lick-spec", "--instrument", "drums", "--fret-range", "5-12"])
+
+    result = lick_spec_command(args)
+
+    assert result == 2
+    assert "--fret-range is not supported for drums" in capsys.readouterr().err
+
+
+def test_lick_spec_command_rejects_wrong_instrument_tuning(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    args = build_parser().parse_args(["lick-spec", "--instrument", "bass", "--tuning", "standard"])
+
+    result = lick_spec_command(args)
+
+    assert result == 2
+    assert "unsupported tuning for bass: standard" in capsys.readouterr().err
