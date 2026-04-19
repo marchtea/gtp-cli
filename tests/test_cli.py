@@ -260,3 +260,16 @@ def test_lick_spec_command_rejects_wrong_instrument_tuning(
 
     assert result == 2
     assert "unsupported tuning for bass: standard" in capsys.readouterr().err
+
+
+def test_lick_spec_help_describes_supported_instruments(capsys: pytest.CaptureFixture[str]) -> None:
+    parser = build_parser()
+
+    with pytest.raises(SystemExit) as error:
+        parser.parse_args(["lick-spec", "--help"])
+
+    assert error.value.code == 0
+    output = capsys.readouterr().out
+    assert "--instrument {guitar,bass,drums}" in output
+    assert "Supported: guitar, bass," in output
+    assert "drums. Defaults to guitar." in output

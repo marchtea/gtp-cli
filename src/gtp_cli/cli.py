@@ -59,7 +59,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="prompt",
         help="Output format. Defaults to prompt.",
     )
-    lick_spec.add_argument("--instrument", choices=INSTRUMENTS, default="guitar", help="Instrument spec to print.")
+    lick_spec.add_argument(
+        "--instrument",
+        choices=INSTRUMENTS,
+        default="guitar",
+        help="Instrument spec to print. Supported: guitar, bass, drums. Defaults to guitar.",
+    )
     lick_spec.add_argument("--style", choices=STYLES, default="blues_rock", help="Musical style for prompt output.")
     lick_spec.add_argument("--key", default="E minor", help='Musical key for prompt output, e.g. "E minor".')
     lick_spec.add_argument("--bars", type=int, default=2, choices=range(1, 9), help="Number of bars for prompt output.")
