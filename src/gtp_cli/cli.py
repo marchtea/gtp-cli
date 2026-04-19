@@ -137,6 +137,13 @@ def convert_command(args: argparse.Namespace, runner: Runner = run_osascript) ->
 
 
 def lick_spec_command(args: argparse.Namespace) -> int:
+    if getattr(args, "default_instrument_hint", False):
+        print(
+            "Note: this command defaults to instrument=guitar. "
+            "Use `gtp-cli lick-spec --help` to view how to select bass or drums."
+        )
+        print()
+
     if args.instrument == "drums" and args.tuning is not None:
         print("gtp-cli: --tuning is not supported for drums", file=sys.stderr)
         return 2
@@ -199,8 +206,11 @@ def _default_tuning(instrument: str, tuning: str | None) -> str | None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    effective_argv = argv if argv is not None else sys.argv[1:]
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(effective_argv)
+    if effective_argv == ["lick-spec"]:
+        setattr(args, "default_instrument_hint", True)
     return args.handler(args)
 
 

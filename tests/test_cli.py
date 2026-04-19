@@ -7,7 +7,7 @@ from subprocess import CompletedProcess
 import pytest
 
 from gtp_cli.automation import ConversionRequest, build_applescript
-from gtp_cli.cli import build_parser, convert_command, lick_spec_command
+from gtp_cli.cli import build_parser, convert_command, lick_spec_command, main
 from gtp_cli.paths import ConversionPaths, resolve_conversion_paths
 
 
@@ -273,3 +273,13 @@ def test_lick_spec_help_describes_supported_instruments(capsys: pytest.CaptureFi
     assert "--instrument {guitar,bass,drums}" in output
     assert "Supported: guitar, bass," in output
     assert "drums. Defaults to guitar." in output
+
+
+def test_main_lick_spec_prints_default_instrument_hint(capsys: pytest.CaptureFixture[str]) -> None:
+    result = main(["lick-spec"])
+
+    assert result == 0
+    output = capsys.readouterr().out
+    assert "defaults to instrument=guitar" in output
+    assert "Use `gtp-cli lick-spec --help`" in output
+    assert 'instrument must be "guitar"' in output
