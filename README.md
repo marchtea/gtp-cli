@@ -57,6 +57,16 @@ uv run gtp-cli convert 'tests/7和弦順階連奏.xml' --force --timeout 75 --se
 file 'tests/7和弦順階連奏.gpx' 'tests/7和弦順階連奏.png'
 ```
 
+## Packaging
+
+Build the source distribution and wheel:
+
+```bash
+scripts/package.sh
+```
+
+The script runs the unit tests, verifies that the generated AppleScript compiles, and writes packages to `dist/`.
+
 ## Notes
 
 Guitar Pro 8 does not provide a stable public command line interface on macOS, so this tool uses AppleScript and System Events to drive the normal application menus. Menu names can differ by Guitar Pro version or app language; if needed, pass custom menu paths:
