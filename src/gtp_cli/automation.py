@@ -158,29 +158,45 @@ on clickButtonIfPresent(appName, buttonName)
     return false
 end clickButtonIfPresent
 
+on buttonMatches(candidateButton, buttonNames)
+    repeat with buttonName in buttonNames
+        set buttonText to buttonName as text
+        try
+            if (name of candidateButton as text) is buttonText then return true
+        end try
+        try
+            if (title of candidateButton as text) is buttonText then return true
+        end try
+        try
+            if (description of candidateButton as text) is buttonText then return true
+        end try
+    end repeat
+    return false
+end buttonMatches
+
+on clickMatchingButton(containerElement, buttonNames)
+    tell application "System Events"
+        repeat with candidateButton in buttons of containerElement
+            if my buttonMatches(candidateButton, buttonNames) then
+                click candidateButton
+                return true
+            end if
+        end repeat
+    end tell
+    return false
+end clickMatchingButton
+
 on clickFirstButtonByName(appName, buttonNames)
     tell application "System Events"
         tell process appName
             repeat with candidateWindow in windows
-                repeat with buttonName in buttonNames
-                    set buttonText to buttonName as text
-                    if exists button buttonText of candidateWindow then
-                        click button buttonText of candidateWindow
-                        return true
-                    end if
-                    if exists splitter group 1 of candidateWindow then
-                        if exists button buttonText of splitter group 1 of candidateWindow then
-                            click button buttonText of splitter group 1 of candidateWindow
-                            return true
-                        end if
-                    end if
-                    if exists sheet 1 of candidateWindow then
-                        if exists button buttonText of sheet 1 of candidateWindow then
-                            click button buttonText of sheet 1 of candidateWindow
-                            return true
-                        end if
-                    end if
-                end repeat
+                if my clickMatchingButton(candidateWindow, buttonNames) then return true
+                if exists splitter group 1 of candidateWindow then
+                    if my clickMatchingButton(splitter group 1 of candidateWindow, buttonNames) then return true
+                end if
+                if exists sheet 1 of candidateWindow then
+                    if my clickMatchingButton(sheet 1 of candidateWindow, buttonNames) then return true
+                end if
             end repeat
         end tell
     end tell
@@ -203,7 +219,7 @@ on goToDirectory(appName, outputDirectory, timeoutSeconds)
     tell application "System Events"
         tell process appName
             set frontmost to true
-            keystroke "g" using {{command down, shift down}}
+            key code 5 using {{command down, shift down}}
         end tell
     end tell
 
@@ -279,15 +295,79 @@ on waitForFile(outputPath, timeoutSeconds)
     end repeat
 end waitForFile
 
-on savePanelToPath(appName, outputPath, timeoutSeconds, shouldNavigate)
+on getPngExportFolder(appName)
+    tell application "System Events"
+        tell process appName
+            tell window 1
+                repeat with candidateButton in buttons
+                    try
+                        set buttonName to name of candidateButton as text
+                        if buttonName starts with "/" then return buttonName
+                    end try
+                end repeat
+            end tell
+        end tell
+    end tell
+    error "Could not find PNG export folder in Guitar Pro dialog"
+end getPngExportFolder
+
+on waitForGeneratedPng(exportFolder, uniqueStem, timeoutSeconds)
+    set startedAt to current date
+    set globPrefix to exportFolder & "/" & uniqueStem
+    set findCommand to "for f in " & quoted form of globPrefix & "*.png; do [ -f \\\"$f\\\" ] && printf '%s\\\\n' \\\"$f\\\" && exit 0; done; exit 1"
+    repeat
+        try
+            set generatedPath to do shell script findCommand
+            return generatedPath
+        end try
+        if ((current date) - startedAt) > timeoutSeconds then error "Timed out waiting for generated PNG"
+        delay 0.5
+    end repeat
+end waitForGeneratedPng
+
+on exportPngDialogToPath(appName, outputPath, timeoutSeconds)
+    set outputDirectory to do shell script "dirname " & quoted form of outputPath
+    set outputName to do shell script "basename " & quoted form of outputPath
+    set outputStem to outputName
+    if outputName ends with ".png" then set outputStem to text 1 thru -5 of outputName
+    set uniqueStem to outputStem & "-gtpcli-" & (do shell script "date +%s")
+
+    my waitForSaveWindow(appName, timeoutSeconds)
+    set exportFolder to my getPngExportFolder(appName)
+
+    tell application "System Events"
+        tell process appName
+            tell window 1
+                set value of text field 1 to uniqueStem
+                set focused of text field 1 to true
+            end tell
+        end tell
+    end tell
+
+    delay 0.2
+    my clickFirstButtonByName(appName, {{"Export", "导出"}})
+    delay 0.5
+    tell application "System Events"
+        tell process appName
+            if exists window 1 then
+                set activeWindowName to name of window 1 as text
+                if activeWindowName contains "png" or activeWindowName contains "PNG" then key code 36
+            end if
+        end tell
+    end tell
+    set generatedPath to my waitForGeneratedPng(exportFolder, uniqueStem, timeoutSeconds)
+    do shell script "mkdir -p " & quoted form of outputDirectory
+    do shell script "mv -f " & quoted form of generatedPath & " " & quoted form of outputPath
+    my waitForFile(outputPath, timeoutSeconds)
+end exportPngDialogToPath
+
+on savePanelToPath(appName, outputPath, timeoutSeconds)
     set outputDirectory to do shell script "dirname " & quoted form of outputPath
     set outputName to do shell script "basename " & quoted form of outputPath
 
     my waitForSaveWindow(appName, timeoutSeconds)
-    if shouldNavigate then
-        my goToDirectory(appName, outputDirectory, timeoutSeconds)
-        delay 0.4
-    end if
+    my goToDirectory(appName, outputDirectory, timeoutSeconds)
+    delay 0.4
     my setSavePanelFileName(appName, outputName)
     delay 0.2
     my clickFirstButtonByName(appName, {{"Save", "保存"}})
@@ -312,12 +392,11 @@ def _build_save_block(request: ConversionRequest) -> str:
     if request.paths.gpx is None:
         return ""
     gpx_path = _as_string(str(request.paths.gpx))
-    should_navigate = _as_boolean(request.paths.gpx.parent != request.paths.source.parent)
     menus = _as_applescript_menu_candidates(request.save_menu, DEFAULT_GPX_MENUS)
     return f"""
 my clickFirstAvailableMenuPath({ _as_string(request.app_name) }, {menus}, timeoutSeconds)
 delay 0.7
-my savePanelToPath(appName, {gpx_path}, timeoutSeconds, {should_navigate})
+my savePanelToPath(appName, {gpx_path}, timeoutSeconds)
 delay settleDelay
 """
 
@@ -326,12 +405,11 @@ def _build_png_block(request: ConversionRequest) -> str:
     if request.paths.png is None:
         return ""
     png_path = _as_string(str(request.paths.png))
-    should_navigate = _as_boolean(request.paths.png.parent != request.paths.source.parent)
     menus = _as_applescript_menu_candidates(request.png_menu, DEFAULT_PNG_MENUS)
     return f"""
 my clickFirstAvailableMenuPath({ _as_string(request.app_name) }, {menus}, timeoutSeconds)
 delay 0.7
-my savePanelToPath(appName, {png_path}, timeoutSeconds, {should_navigate})
+my exportPngDialogToPath(appName, {png_path}, timeoutSeconds)
 delay settleDelay
 """
 
@@ -346,10 +424,6 @@ def _as_applescript_menu_candidates(
 ) -> str:
     ordered = (preferred, *tuple(candidate for candidate in defaults if candidate != preferred))
     return "{" + ", ".join(_as_applescript_list(candidate) for candidate in ordered) + "}"
-
-
-def _as_boolean(value: bool) -> str:
-    return "true" if value else "false"
 
 
 def _as_string(value: str) -> str:

@@ -69,6 +69,7 @@ def test_build_applescript_contains_paths_and_menu_sequence(tmp_path: Path) -> N
     assert str(png) in script
     assert 'clickFirstAvailableMenuPath("Guitar Pro 8", {{"File", "Export", "GPX..."}, {"文档", "导出", "GPX..."}}, timeoutSeconds)' in script
     assert 'clickFirstAvailableMenuPath("Guitar Pro 8", {{"File", "Export", "PNG..."}, {"文档", "导出", "PNG..."}}, timeoutSeconds)' in script
+    assert 'clickFirstButtonByName(appName, {"Export", "导出"})' in script
     assert "quit application appName" not in script
 
 
